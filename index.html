@@ -125,6 +125,44 @@
       <button type="submit">Start Earning</button>
     </form>
   </section>
+
+  <section class="pulse">
+    ...
+  </section>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabaseUrl = 'https://ainvcprlrjekflorznxl.supabase.co'
+    const supabaseKey = 'sb_publishable_loafUyxLPmOAJn80NHy3uQ_i10Iah6M'
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const form = document.querySelector('.pulse-form')
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+
+      const first_name = document.getElementById('first-name').value.trim()
+      const email = document.getElementById('email').value.trim()
+      const social_handle = document.getElementById('social-handle').value.trim()
+
+      const { error } = await supabase
+        .from('pulse_rewards_signups')
+        .insert([{ first_name, email, social_handle }])
+
+      if (error) {
+        alert('There was a problem. Please try again.')
+        return
+      }
+
+      alert('You are in. Start earning.')
+      form.reset()
+    })
+  </script>
+</body>
+</html>
+
+  
   
 </body>
 </html>
