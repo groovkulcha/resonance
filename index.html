@@ -7,7 +7,7 @@
   <style>
     body {
       margin: 0;
-      font-family: 'Rajdhani' sans-serif;
+      font-family: Rajdhani, sans-serif;
       background: #0f1115;
       color: #f5f5f5;
       text-align: center;
@@ -90,13 +90,16 @@
       cursor: pointer;
     }
 
-
-    
+    .pulse-status {
+      min-height: 1.5em;
+      margin: 4px 0 0;
+      color: #cfcfcf;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
   <section class="hero">
-   
     <img
       class="flyer"
       src="./ResonanceFlyer.jpeg"
@@ -106,7 +109,7 @@
     />
   </section>
 
-   <section class="pulse">
+  <section class="pulse">
     <h2>Pulse Rewards</h2>
     <p class="pulse-text">
       Earn rewards for showing up, sharing the vibe, and staying connected.
@@ -114,20 +117,17 @@
 
     <form class="pulse-form">
       <label for="first-name">First name</label>
-      <input type="text" id="first-name" name="first_name" />
+      <input type="text" id="first-name" name="first_name" required />
 
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" />
+      <input type="email" id="email" name="email" required />
 
       <label for="social-handle">Instagram or social handle</label>
       <input type="text" id="social-handle" name="social_handle" />
 
       <button type="submit">Start Earning</button>
+      <p class="pulse-status" role="status" aria-live="polite"></p>
     </form>
-  </section>
-
-  <section class="pulse">
-    ...
   </section>
 
   <script type="module">
@@ -138,9 +138,11 @@
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const form = document.querySelector('.pulse-form')
+    const status = document.querySelector('.pulse-status')
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
+      status.textContent = 'Submitting…'
 
       const first_name = document.getElementById('first-name').value.trim()
       const email = document.getElementById('email').value.trim()
@@ -151,18 +153,13 @@
         .insert([{ first_name, email, social_handle }])
 
       if (error) {
-        alert('There was a problem. Please try again.')
+        status.textContent = 'There was a problem. Please try again.'
         return
       }
 
-      alert('You are in. Start earning.')
+      status.textContent = 'You are in. Start earning.'
       form.reset()
     })
   </script>
-</body>
-</html>
-
-  
-  
 </body>
 </html>
