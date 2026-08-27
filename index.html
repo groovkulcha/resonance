@@ -90,6 +90,23 @@
       cursor: pointer;
     }
 
+    .sms-consent {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 4px;
+      color: #cfcfcf;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      text-align: left;
+    }
+
+    .sms-consent input {
+      width: auto;
+      margin: 3px 0 0;
+      accent-color: #c9a15d;
+    }
+
     .pulse-status {
       min-height: 1.5em;
       margin: 4px 0 0;
@@ -102,7 +119,7 @@
   <section class="hero">
     <img
       class="flyer"
-      src="ResonanceFlyer_ShutUp.jpeg"
+      src="./ResonanceFlyer.jpeg"
       alt="Resonance Event Flyer"
       width="535"
       height="801"
@@ -117,13 +134,21 @@
 
     <form class="pulse-form">
       <label for="first-name">First name</label>
-      <input type="text" id="first-name" name="first_name" required />
+      <input type="text" id="first-name" name="first_name" autocomplete="given-name" required />
 
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" required />
+      <input type="email" id="email" name="email" autocomplete="email" required />
+
+      <label for="phone">Mobile number</label>
+      <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="(617) 555-0123" required />
 
       <label for="social-handle">Instagram or social handle</label>
-      <input type="text" id="social-handle" name="social_handle" />
+      <input type="text" id="social-handle" name="social_handle" autocomplete="username" />
+
+      <label class="sms-consent" for="sms-consent">
+        <input type="checkbox" id="sms-consent" name="sms_consent" required />
+        <span>By providing your number, you agree to receive Pulse Rewards messages. Message and data rates may apply. Reply STOP to opt out.</span>
+      </label>
 
       <button type="submit">Start Earning</button>
       <p class="pulse-status" role="status" aria-live="polite"></p>
@@ -140,17 +165,45 @@
     const form = document.querySelector('.pulse-form')
     const status = document.querySelector('.pulse-status')
 
+    const normalizePhone = (value) => {
+      const digits = value.replace(/\D/g, '')
+      if (digits.length === 10) return `+1${digits}`
+      if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+      if (value.trim().startsWith('+') && digits.length >= 8 && digits.length <= 15) return `+${digits}`
+      return null
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
-      status.textContent = 'Submitting…'
 
       const first_name = document.getElementById('first-name').value.trim()
       const email = document.getElementById('email').value.trim()
+      const phone = normalizePhone(document.getElementById('phone').value)
       const social_handle = document.getElementById('social-handle').value.trim()
+      const sms_consent = document.getElementById('sms-consent').checked
+
+      if (!phone) {
+        status.textContent = 'Enter a valid mobile number, including country code if outside the U.S.'
+        return
+      }
+
+      if (!sms_consent) {
+        status.textContent = 'Please agree to the Pulse Rewards message terms to continue.'
+        return
+      }
+
+      status.textContent = 'Submitting…'
 
       const { error } = await supabase
         .from('pulse_rewards_signups')
-        .insert([{ first_name, email, social_handle }])
+        .insert([{
+          first_name,
+          email,
+          phone,
+          social_handle: social_handle || null,
+          sms_consent,
+          sms_consent_at: new Date().toISOString()
+        }])
 
       if (error) {
         status.textContent = 'There was a problem. Please try again.'
