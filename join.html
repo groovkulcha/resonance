@@ -20,9 +20,11 @@
     button { width: 100%; padding: 14px 16px; border: 0; border-radius: 12px; color: #181307; background: var(--accent); font: inherit; font-weight: 850; cursor: pointer; }
     button:hover { filter: brightness(1.06); }
     button:disabled { cursor: wait; opacity: .65; }
-    .notice { margin: 17px 2px 0; color: var(--muted); font-size: .9rem; line-height: 1.5; text-align: center; }
+    .notice { margin: 17px 2px 0; color: var(--muted); font-size: .9rem; line-height: 1.5; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
     .notice.success { color: var(--success); }
     .notice.error { color: var(--danger); }
+    .diagnostic { margin: 12px 2px 0; padding: 11px; border: 1px solid #5a4242; border-radius: 10px; color: #ffd2d2; background: #2b1719; font: .78rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .diagnostic[hidden] { display: none; }
     .returning { margin: 20px 0 0; color: var(--muted); font-size: .9rem; text-align: center; }
     a { color: var(--accent); font-weight: 750; }
     .fine-print { margin: 24px auto 0; max-width: 38ch; color: #85817b; font-size: .78rem; line-height: 1.5; text-align: center; }
@@ -42,36 +44,94 @@
         <button id="submit" type="submit">Email my sign-in link</button>
       </form>
       <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      <pre id="diagnostic" class="diagnostic" hidden aria-live="assertive"></pre>
       <p class="returning">Already a member? <a href="pass.html">View your pass</a></p>
     </section>
     <p class="fine-print">We use your email only to deliver your sign-in link and member pass. No password required.</p>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    const diagnostic = document.getElementById('diagnostic');
+    const notice = document.getElementById('notice');
+    const submit = document.getElementById('submit');
+    const form = document.getElementById('join-form');
     const supabaseUrl = 'https://bawttitvhoiwsjjxjmae.supabase.co';
     const supabaseKey = 'sb_publishable_iygmt6kTFDohEVviH5QcbA_hxrLRDXR';
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-    const form = document.getElementById('join-form');
-    const submit = document.getElementById('submit');
-    const notice = document.getElementById('notice');
-    function setNotice(text, kind = '') { notice.textContent = text; notice.className = `notice ${kind}`; }
+    let supabaseClient = null;
+
+    function setNotice(text, kind = '') {
+      notice.textContent = text;
+      notice.className = `notice ${kind}`;
+    }
+
+    function showDiagnostic(label, error) {
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error || 'Unknown error');
+      diagnostic.textContent = `${label}\n${detail}`;
+      diagnostic.hidden = false;
+      setNotice('The signup request could not be completed. Please send us the diagnostic message below.', 'error');
+    }
+
+    function loadSupabaseLibrary() {
+      return new Promise((resolve, reject) => {
+        if (window.supabase && typeof window.supabase.createClient === 'function') return resolve();
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js';
+        script.async = true;
+        script.onload = () => window.supabase && typeof window.supabase.createClient === 'function' ? resolve() : reject(new Error('The Supabase browser library loaded without createClient.'));
+        script.onerror = () => reject(new Error('The Supabase browser library could not be downloaded. Check your network, content blockers, or retry later.'));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function initialize() {
+      try {
+        await loadSupabaseLibrary();
+        supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        setNotice('');
+      } catch (error) {
+        showDiagnostic('Initialization failed:', error);
+        submit.disabled = true;
+      }
+    }
+
+    window.addEventListener('error', (event) => showDiagnostic('JavaScript error:', event.error || event.message));
+    window.addEventListener('unhandledrejection', (event) => showDiagnostic('Unhandled request error:', event.reason));
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      diagnostic.hidden = true;
       const displayName = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
-      if (!displayName || !email) return;
+      if (!displayName || !email) {
+        setNotice('Enter your first name and a valid email address.', 'error');
+        return;
+      }
+      if (!supabaseClient) {
+        showDiagnostic('Initialization failed:', new Error('The Supabase client is not ready.'));
+        return;
+      }
       submit.disabled = true;
       setNotice('Sending your secure sign-in link…');
-      const redirectTo = new URL('pass.html', window.location.href).href;
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: redirectTo, shouldCreateUser: true, data: { display_name: displayName } }
-      });
-      submit.disabled = false;
-      if (error) { setNotice(error.message || 'We couldn’t send the sign-in link. Please try again.', 'error'); return; }
-      form.reset();
-      setNotice('Check your inbox for the secure sign-in link. After you open it, we’ll take you to your member pass.', 'success');
+      try {
+        const redirectTo = new URL('pass.html', window.location.href).href;
+        const { error } = await supabaseClient.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: redirectTo,
+            shouldCreateUser: true,
+            data: { display_name: displayName }
+          }
+        });
+        if (error) throw error;
+        form.reset();
+        setNotice('Check your inbox for the secure sign-in link. After you open it, we’ll take you to your member pass.', 'success');
+      } catch (error) {
+        showDiagnostic('Supabase signup request failed:', error);
+      } finally {
+        submit.disabled = false;
+      }
     });
+
+    initialize();
   </script>
 </body>
 </html>
