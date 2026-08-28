@@ -62,7 +62,9 @@
   <script>
     const supabaseUrl = 'https://bawttitvhoiwsjjxjmae.supabase.co';
     const supabaseKey = 'sb_publishable_iygmt6kTFDohEVviH5QcbA_hxrLRDXR';
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
+      auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+    });
     const message = document.getElementById('message');
     const pass = document.getElementById('pass');
 
@@ -70,6 +72,12 @@
       message.textContent = text;
       message.classList.toggle('error', isError);
       message.classList.remove('hidden');
+    }
+
+    function clearCallbackFromUrl() {
+      if (window.location.search.includes('code=') || window.location.hash.includes('access_token=')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
 
     function renderPass(profile, memberPass) {
@@ -89,21 +97,64 @@
       message.classList.add('hidden');
     }
 
+    async function getCallbackSession() {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
+      if (code) {
+        showMessage('Signing you in…');
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        clearCallbackFromUrl();
+        return data.session;
+      }
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      if (session) {
+        clearCallbackFromUrl();
+        return session;
+      }
+
+      return await new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          subscription.unsubscribe();
+          reject(new Error('We could not finish your secure sign-in. Please request a new sign-in link and open it in the same browser.'));
+        }, 8000);
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+          if (event === 'SIGNED_IN' && nextSession) {
+            window.clearTimeout(timeout);
+            subscription.unsubscribe();
+            clearCallbackFromUrl();
+            resolve(nextSession);
+          }
+        });
+      });
+    }
+
     async function loadPass() {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        showMessage('Please sign in through the Resonance member portal before opening your pass.', true);
-        return;
+      try {
+        const session = await getCallbackSession();
+        if (!session) {
+          throw new Error('Please sign in through the Resonance member portal before opening your pass.');
+        }
+
+        showMessage('Loading your member pass…');
+        const [profileResult, passResult] = await Promise.all([
+          supabase.from('profiles').select('display_name, member_code').eq('id', session.user.id).single(),
+          supabase.from('member_passes').select('pass_token, status').eq('profile_id', session.user.id).eq('status', 'active').single()
+        ]);
+
+        if (profileResult.error || passResult.error) {
+          const detail = profileResult.error?.message || passResult.error?.message || 'The pass record was not found.';
+          throw new Error(`Your active pass could not be loaded: ${detail}`);
+        }
+
+        renderPass(profileResult.data, passResult.data);
+      } catch (error) {
+        console.error('Member pass loading failed:', error);
+        showMessage(error?.message || 'Your member pass could not be loaded. Please request a new sign-in link and try again.', true);
       }
-      const [profileResult, passResult] = await Promise.all([
-        supabase.from('profiles').select('display_name, member_code').eq('id', session.user.id).single(),
-        supabase.from('member_passes').select('pass_token, status').eq('profile_id', session.user.id).eq('status', 'active').single()
-      ]);
-      if (profileResult.error || passResult.error) {
-        showMessage('Your active pass could not be found. Please contact the Resonance team for help.', true);
-        return;
-      }
-      renderPass(profileResult.data, passResult.data);
     }
 
     document.getElementById('print').addEventListener('click', () => window.print());
