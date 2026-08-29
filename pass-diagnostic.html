@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Resonance — Pass callback diagnostics</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0b0d; color: #f3f3f5; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(680px, calc(100% - 32px)); padding: 28px; border: 1px solid #33333a; border-radius: 18px; background: #151519; box-shadow: 0 18px 50px rgba(0,0,0,.34); }
+    h1 { margin: 0 0 8px; font-size: 1.35rem; }
+    p { color: #c7c7ce; line-height: 1.5; }
+    .build { display: inline-block; margin: 8px 0 20px; padding: 5px 9px; border-radius: 999px; background: #25252c; color: #d7d7df; font: .78rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    #status { padding: 14px; border-radius: 10px; background: #202026; font-weight: 650; }
+    #details { margin: 16px 0 0; padding: 14px; overflow-wrap: anywhere; white-space: pre-wrap; border: 1px solid #303038; border-radius: 10px; background: #0e0e11; color: #d5d5de; font: .84rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .ok { color: #8de3aa; } .warn { color: #ffd27d; } .bad { color: #ff9c9c; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Resonance member-pass diagnostics</h1>
+    <div class="build">Pass diagnostic build: 2026-08-28-2102</div>
+    <div id="status">JavaScript started. Inspecting callback data…</div>
+    <p>This temporary page reports only the presence of callback parameters. It does not display, store, or transmit authentication tokens.</p>
+    <pre id="details" aria-live="polite"></pre>
+  </main>
+  <script>
+    (() => {
+      const status = document.getElementById('status');
+      const details = document.getElementById('details');
+      const safeUrl = new URL(window.location.href);
+      const query = safeUrl.searchParams;
+      const hash = new URLSearchParams(safeUrl.hash.replace(/^#/, ''));
+      const flags = {
+        queryCode: query.has('code'),
+        queryError: query.has('error'),
+        hashAccessToken: hash.has('access_token'),
+        hashError: hash.has('error')
+      };
+      const errorDescription = query.get('error_description') || hash.get('error_description');
+      const redactedLocation = safeUrl.origin + safeUrl.pathname + (safeUrl.search ? '?[query parameters present]' : '') + (safeUrl.hash ? '#[fragment parameters present]' : '');
+      const lines = [
+        'Build: 2026-08-28-2102',
+        'JavaScript: running',
+        'Path: ' + safeUrl.pathname,
+        'Callback signal: ' + (flags.queryCode ? 'authorization code in query' : flags.hashAccessToken ? 'access-token fragment' : flags.queryError || flags.hashError ? 'error returned by auth provider' : 'no recognized auth parameters'),
+        'Query contains code: ' + flags.queryCode,
+        'Hash contains access token: ' + flags.hashAccessToken,
+        'Query/hash contains error: ' + (flags.queryError || flags.hashError),
+        'Visible location redacted: ' + redactedLocation
+      ];
+      if (errorDescription) lines.push('Auth error description: ' + errorDescription);
+      details.textContent = lines.join('\n');
+      if (flags.queryError || flags.hashError) {
+        status.textContent = 'Authentication returned an error. See the safe diagnostics below.';
+        status.className = 'bad';
+      } else if (flags.queryCode || flags.hashAccessToken) {
+        status.textContent = 'Callback data arrived. JavaScript is running; the production pass page must now exchange or read this callback data.';
+        status.className = 'ok';
+      } else {
+        status.textContent = 'No recognized callback data arrived. Open this page only through a fresh Supabase magic-link redirect.';
+        status.className = 'warn';
+      }
+    })();
+  </script>
+</body>
+</html>
