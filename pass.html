@@ -98,39 +98,71 @@
     }
 
     async function getCallbackSession() {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get('code');
-      if (code) {
-        showMessage('Signing you in…');
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
-        clearCallbackFromUrl();
-        return data.session;
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get('code');
+
+  if (code) {
+    showMessage('Signing you in…');
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    clearCallbackFromUrl();
+    return data.session;
+  }
+
+  showMessage('Processing your secure sign-in…');
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timer = null;
+    let interval = null;
+    let subscription = null;
+
+    const finish = (error, session) => {
+      if (settled) return;
+      settled = true;
+
+      if (timer) window.clearTimeout(timer);
+      if (interval) window.clearInterval(interval);
+      if (subscription) subscription.unsubscribe();
+
+      if (error) {
+        reject(error);
+        return;
       }
 
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      if (session) {
-        clearCallbackFromUrl();
-        return session;
+      clearCallbackFromUrl();
+      resolve(session);
+    };
+
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) return finish(error);
+        if (data.session) return finish(null, data.session);
+      } catch (error) {
+        finish(error);
       }
+    };
 
-      return await new Promise((resolve, reject) => {
-        const timeout = window.setTimeout(() => {
-          subscription.unsubscribe();
-          reject(new Error('We could not finish your secure sign-in. Please request a new sign-in link and open it in the same browser.'));
-        }, 8000);
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        finish(null, session);
+      }
+    });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-          if (event === 'SIGNED_IN' && nextSession) {
-            window.clearTimeout(timeout);
-            subscription.unsubscribe();
-            clearCallbackFromUrl();
-            resolve(nextSession);
-          }
-        });
-      });
-    }
+    subscription = data.subscription;
+    checkSession();
+    interval = window.setInterval(checkSession, 250);
+
+    timer = window.setTimeout(() => {
+      finish(
+        new Error(
+          'Secure sign-in was not completed. Please request a new sign-in link and open it in the same browser.'
+        )
+      );
+    }, 10000);
+  });
+}
 
     async function loadPass() {
       try {
