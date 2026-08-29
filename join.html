@@ -112,7 +112,7 @@
       submit.disabled = true;
       setNotice('Sending your secure sign-in link…');
       try {
-        const redirectTo = new URL('pass-diagnostic.html', window.location.href).href;
+        const redirectTo = new URL('pass.html', window.location.href).href;
         const { error } = await supabaseClient.auth.signInWithOtp({
           email,
           options: {
