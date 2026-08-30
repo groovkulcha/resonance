@@ -62,7 +62,7 @@
   <script>
     const supabaseUrl = 'https://bawttitvhoiwsjjxjmae.supabase.co';
     const supabaseKey = 'sb_publishable_iygmt6kTFDohEVviH5QcbA_hxrLRDXR';
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
       auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
     });
     const message = document.getElementById('message');
@@ -100,35 +100,67 @@
     async function getCallbackSession() {
       const url = new URL(window.location.href);
       const code = url.searchParams.get('code');
+
       if (code) {
         showMessage('Signing you in…');
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        const { data, error } = await supabaseClient.auth.exchangeCodeForSession(code);
         if (error) throw error;
         clearCallbackFromUrl();
         return data.session;
       }
 
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      if (session) {
-        clearCallbackFromUrl();
-        return session;
-      }
+      showMessage('Processing your secure sign-in…');
 
-      return await new Promise((resolve, reject) => {
-        const timeout = window.setTimeout(() => {
-          subscription.unsubscribe();
-          reject(new Error('We could not finish your secure sign-in. Please request a new sign-in link and open it in the same browser.'));
-        }, 8000);
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        let timer = null;
+        let interval = null;
+        let subscription = null;
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-          if (event === 'SIGNED_IN' && nextSession) {
-            window.clearTimeout(timeout);
-            subscription.unsubscribe();
-            clearCallbackFromUrl();
-            resolve(nextSession);
+        const finish = (error, session) => {
+          if (settled) return;
+          settled = true;
+
+          if (timer) window.clearTimeout(timer);
+          if (interval) window.clearInterval(interval);
+          if (subscription) subscription.unsubscribe();
+
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          clearCallbackFromUrl();
+          resolve(session);
+        };
+
+        const checkSession = async () => {
+          try {
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (error) return finish(error);
+            if (data.session) return finish(null, data.session);
+          } catch (error) {
+            finish(error);
+          }
+        };
+
+        const { data } = supabaseClient.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            finish(null, session);
           }
         });
+
+        subscription = data.subscription;
+        checkSession();
+        interval = window.setInterval(checkSession, 250);
+
+        timer = window.setTimeout(() => {
+          finish(
+            new Error(
+              'Secure sign-in was not completed. Please request a new sign-in link and open it in the same browser.'
+            )
+          );
+        }, 10000);
       });
     }
 
@@ -141,8 +173,8 @@
 
         showMessage('Loading your member pass…');
         const [profileResult, passResult] = await Promise.all([
-          supabase.from('profiles').select('display_name, member_code').eq('id', session.user.id).single(),
-          supabase.from('member_passes').select('pass_token, status').eq('profile_id', session.user.id).eq('status', 'active').single()
+          supabaseClient.from('profiles').select('display_name, member_code').eq('id', session.user.id).single(),
+          supabaseClient.from('member_passes').select('pass_token, status').eq('profile_id', session.user.id).eq('status', 'active').single()
         ]);
 
         if (profileResult.error || passResult.error) {
@@ -159,7 +191,7 @@
 
     document.getElementById('print').addEventListener('click', () => window.print());
     document.getElementById('sign-out').addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
       pass.classList.add('hidden');
       showMessage('You have been signed out. Sign in through the Resonance member portal to view your pass.');
     });
