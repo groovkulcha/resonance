@@ -78,6 +78,12 @@
     const form = document.getElementById('join-form');
     const submitButton = document.getElementById('submit-button');
     const status = document.getElementById('status');
+    const savedEmail = window.sessionStorage.getItem('resonance.join.email');
+
+    if (savedEmail) {
+      document.getElementById('email').value = savedEmail;
+      window.sessionStorage.removeItem('resonance.join.email');
+    }
 
     function showStatus(message, type) {
       status.textContent = message;
