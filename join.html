@@ -8,7 +8,7 @@
   <style>
     :root { color-scheme: dark; --bg: #0d0d0e; --card: #19191c; --ink: #f8f4ec; --muted: #bbb7ae; --accent: #f5c842; --line: #34343a; --danger: #ff8b8b; --success: #bdeaa5; }
     * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top right, #2c2110, transparent 38%), var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top right, #2c2110, transparent 38%), var(--bg); color: var(--ink)[...]}
     main { width: min(100%, 430px); }
     .brand { margin: 0 0 12px; color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .2em; text-align: center; text-transform: uppercase; }
     h1 { margin: 0; font-size: clamp(2.25rem, 10vw, 3.6rem); line-height: .92; letter-spacing: -.06em; text-align: center; }
@@ -23,7 +23,7 @@
     .notice { margin: 17px 2px 0; color: var(--muted); font-size: .9rem; line-height: 1.5; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
     .notice.success { color: var(--success); }
     .notice.error { color: var(--danger); }
-    .diagnostic { margin: 12px 2px 0; padding: 11px; border: 1px solid #5a4242; border-radius: 10px; color: #ffd2d2; background: #2b1719; font: .78rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .diagnostic { margin: 12px 2px 0; padding: 11px; border: 1px solid #5a4242; border-radius: 10px; color: #ffd2d2; background: #2b1719; font: .78rem/1.45 ui-monospace, SFMono-Regular, Menlo, Con[...]}
     .diagnostic[hidden] { display: none; }
     .returning { margin: 20px 0 0; color: var(--muted); font-size: .9rem; text-align: center; }
     a { color: var(--accent); font-weight: 750; }
@@ -34,7 +34,7 @@
   <main>
     <p class="brand">Resonance</p>
     <h1>Join the pulse.</h1>
-    <p class="intro">Enter your details and we’ll email a secure sign-in link. Your permanent member pass is waiting on the other side.</p>
+    <p class="intro">Enter your details and we'll email a secure sign-in link. Your permanent member pass is waiting on the other side.</p>
     <section class="card" aria-label="Member signup">
       <form id="join-form">
         <label for="name">First name</label>
@@ -49,6 +49,7 @@
     </section>
     <p class="fine-print">We use your email only to deliver your sign-in link and member pass. No password required.</p>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const diagnostic = document.getElementById('diagnostic');
     const notice = document.getElementById('notice');
@@ -70,21 +71,12 @@
       setNotice('The signup request could not be completed. Please send us the diagnostic message below.', 'error');
     }
 
-    function loadSupabaseLibrary() {
-      return new Promise((resolve, reject) => {
-        if (window.supabase && typeof window.supabase.createClient === 'function') return resolve();
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js';
-        script.async = true;
-        script.onload = () => window.supabase && typeof window.supabase.createClient === 'function' ? resolve() : reject(new Error('The Supabase browser library loaded without createClient.'));
-        script.onerror = () => reject(new Error('The Supabase browser library could not be downloaded. Check your network, content blockers, or retry later.'));
-        document.head.appendChild(script);
-      });
-    }
-
     async function initialize() {
       try {
-        await loadSupabaseLibrary();
+        // Wait for the Supabase library to load (already in script tag above)
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          throw new Error('The Supabase browser library is not available. Try refreshing the page.');
+        }
         supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
         setNotice('');
       } catch (error) {
@@ -123,7 +115,7 @@
         });
         if (error) throw error;
         form.reset();
-        setNotice('Check your inbox for the secure sign-in link. After you open it, we’ll take you to your member pass.', 'success');
+        setNotice('Check your inbox for the secure sign-in link. After you open it, we'll take you to your member pass.', 'success');
       } catch (error) {
         showDiagnostic('Supabase signup request failed:', error);
       } finally {
@@ -131,7 +123,12 @@
       }
     });
 
-    initialize();
+    // Initialize after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+      initialize();
+    }
   </script>
 </body>
 </html>
