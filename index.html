@@ -30,89 +30,60 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     }
 
-    .pulse {
+    .join {
+      width: 100%;
       max-width: 460px;
       margin: 30px auto 0;
       padding: 24px;
-      background: #171a20;
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 14px;
+      background: #171a20;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      text-align: left;
     }
 
-    .pulse h2 {
-      margin: 0 0 12px;
+    .join h1 {
+      margin: 0 0 8px;
       font-size: 1.5rem;
-      color: #f5f5f5;
-      text-align: left;
     }
 
-    .pulse-text {
+    .join p {
       margin: 0 0 20px;
-      font-size: 0.98rem;
-      line-height: 1.6;
       color: #cfcfcf;
-      text-align: left;
+      line-height: 1.6;
     }
 
-    .pulse-form {
-      display: flex;
-      flex-direction: column;
+    .join-form {
+      display: grid;
       gap: 12px;
     }
 
-    .pulse-form label {
-      font-size: 0.9rem;
+    .join-form label {
       color: #d8d8d8;
-      text-align: left;
+      font-size: 0.9rem;
     }
 
-    .pulse-form input {
+    .join-form input {
       width: 100%;
       padding: 12px 14px;
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 10px;
       background: #0f1115;
       color: #f5f5f5;
-      font-size: 1rem;
-      box-sizing: border-box;
+      font: inherit;
     }
 
-    .pulse-form button {
-      margin-top: 8px;
+    .join-form button {
       padding: 14px 18px;
-      border: none;
+      border: 0;
       border-radius: 10px;
-      background: #c9a15d;
       color: #111;
-      font-size: 1rem;
-      font-weight: 700;
+      background: #c9a15d;
       cursor: pointer;
+      font: inherit;
+      font-weight: 700;
     }
 
-    .sms-consent {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-top: 4px;
-      color: #cfcfcf;
-      font-size: 0.82rem;
-      line-height: 1.45;
-      text-align: left;
-    }
-
-    .sms-consent input {
-      width: auto;
-      margin: 3px 0 0;
-      accent-color: #c9a15d;
-    }
-
-    .pulse-status {
-      min-height: 1.5em;
-      margin: 4px 0 0;
-      color: #cfcfcf;
-      text-align: left;
-    }
   </style>
 </head>
 <body>
@@ -126,93 +97,23 @@
     />
   </section>
 
-  <section class="pulse">
-    <h2>Pulse Rewards</h2>
-    <p class="pulse-text">
-      Earn rewards for showing up, sharing the vibe, and staying connected.
-    </p>
-
-    <form class="pulse-form">
-      <label for="first-name">First name</label>
-      <input type="text" id="first-name" name="first_name" autocomplete="given-name" required />
-
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" autocomplete="email" required />
-
-      <label for="phone">Mobile number</label>
-      <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="(617) 555-0123" required />
-
-      <label for="social-handle">Instagram or social handle</label>
-      <input type="text" id="social-handle" name="social_handle" autocomplete="username" />
-
-      <label class="sms-consent" for="sms-consent">
-        <input type="checkbox" id="sms-consent" name="sms_consent" required />
-        <span>By providing your number, you agree to receive Pulse Rewards messages. Message and data rates may apply. Reply STOP to opt out.</span>
-      </label>
-
+  <section class="join" aria-labelledby="join-title">
+    <h1 id="join-title">Pulse Rewards</h1>
+    <p>Earn rewards for showing up, sharing the vibe, and staying connected.</p>
+    <form class="join-form" action="join" method="get">
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" autocomplete="email" required>
       <button type="submit">Start Earning</button>
-      <p class="pulse-status" role="status" aria-live="polite"></p>
     </form>
   </section>
 
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-    const supabaseUrl = 'https://ainvcprlrjekflorznxl.supabase.co'
-    const supabaseKey = 'sb_publishable_loafUyxLPmOAJn80NHy3uQ_i10Iah6M'
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
-    const form = document.querySelector('.pulse-form')
-    const status = document.querySelector('.pulse-status')
-
-    const normalizePhone = (value) => {
-      const digits = value.replace(/\D/g, '')
-      if (digits.length === 10) return `+1${digits}`
-      if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
-      if (value.trim().startsWith('+') && digits.length >= 8 && digits.length <= 15) return `+${digits}`
-      return null
-    }
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault()
-
-      const first_name = document.getElementById('first-name').value.trim()
-      const email = document.getElementById('email').value.trim()
-      const phone = normalizePhone(document.getElementById('phone').value)
-      const social_handle = document.getElementById('social-handle').value.trim()
-      const sms_consent = document.getElementById('sms-consent').checked
-
-      if (!phone) {
-        status.textContent = 'Enter a valid mobile number, including country code if outside the U.S.'
-        return
-      }
-
-      if (!sms_consent) {
-        status.textContent = 'Please agree to the Pulse Rewards message terms to continue.'
-        return
-      }
-
-      status.textContent = 'Submitting…'
-
-      const { error } = await supabase
-        .from('pulse_rewards_signups')
-        .insert([{
-          first_name,
-          email,
-          phone,
-          social_handle: social_handle || null,
-          sms_consent,
-          sms_consent_at: new Date().toISOString()
-        }])
-
-      if (error) {
-        status.textContent = 'There was a problem. Please try again.'
-        return
-      }
-
-      status.textContent = 'You are in. Start earning.'
-      form.reset()
-    })
+  <script>
+    document.querySelector('.join-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      window.sessionStorage.setItem('resonance.join.email', email);
+      window.location.assign('join');
+    });
   </script>
 </body>
 </html>
