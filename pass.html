@@ -8,7 +8,7 @@
   <style>
     :root { color-scheme: dark; --bg: #0d0d0e; --card: #19191c; --ink: #f8f4ec; --muted: #bbb7ae; --accent: #f5c842; --line: #34343a; --danger: #ff7878; }
     * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top right, #2c2110, transparent 38%), var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top right, #2c2110, transparent 38%), var(--bg); color: var(--ink)[...]}
     main { width: min(100%, 430px); }
     .brand { margin: 0 0 12px; font-size: .78rem; font-weight: 800; letter-spacing: .2em; text-align: center; text-transform: uppercase; color: var(--accent); }
     h1 { margin: 0 0 22px; font-size: clamp(2rem, 8vw, 3.1rem); line-height: .95; letter-spacing: -.055em; text-align: center; }
@@ -16,7 +16,7 @@
     .pass-top { padding: 28px 26px 24px; border-bottom: 1px dashed #58565d; }
     .eyebrow { margin: 0 0 8px; color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     .name { margin: 0; font-size: 1.7rem; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
-    .status { display: inline-flex; gap: 7px; align-items: center; margin-top: 15px; padding: 7px 10px; border: 1px solid #5b5125; border-radius: 999px; color: #ffe28a; background: #312a12; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .status { display: inline-flex; gap: 7px; align-items: center; margin-top: 15px; padding: 7px 10px; border: 1px solid #5b5125; border-radius: 999px; color: #ffe28a; background: #312a12; font-s[...]}
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 9px var(--accent); }
     .pass-body { padding: 27px 26px 30px; text-align: center; }
     #qr { display: grid; width: min(100%, 276px); min-height: 276px; margin: 0 auto 22px; place-items: center; padding: 12px; border-radius: 16px; background: #fff; }
@@ -25,12 +25,12 @@
     .code { margin: 0; font: 800 1.2rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .16em; }
     .note { margin: 22px 0 0; color: var(--muted); font-size: .86rem; line-height: 1.5; }
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-    button, a.button { appearance: none; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; color: var(--ink); background: #25252a; font: inherit; font-weight: 700; text-align: center; text-decoration: none; cursor: pointer; }
+    button, a.button { appearance: none; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; color: var(--ink); background: #25252a; font: inherit; font-weight: 700; text-align[...]}
     button:hover, a.button:hover { border-color: var(--accent); }
     .message { margin: 18px 4px 0; color: var(--muted); font-size: .9rem; line-height: 1.5; text-align: center; }
     .message.error { color: var(--danger); }
     .hidden { display: none !important; }
-    @media print { body { display: block; padding: 0; background: #fff; color: #111; } main { margin: 0 auto; } .brand, h1, .actions, .message { display: none; } .pass { border: 1px solid #aaa; box-shadow: none; background: #fff; } .pass-top { border-color: #aaa; } .eyebrow, .note { color: #555; } .status { color: #554000; background: #fff9d9; border-color: #aa8c00; } }
+    @media print { body { display: block; padding: 0; background: #fff; color: #111; } main { margin: 0 auto; } .brand, h1, .actions, .message { display: none; } .pass { border: 1px solid #aaa; bo[...]}
   </style>
 </head>
 <body>
@@ -85,84 +85,90 @@
       document.getElementById('member-code').textContent = profile.member_code || '—';
       const qr = document.getElementById('qr');
       qr.replaceChildren();
-      new QRCode(qr, {
-        text: memberPass.pass_token,
-        width: 252,
-        height: 252,
-        colorDark: '#111111',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
+      try {
+        new QRCode(qr, {
+          text: memberPass.pass_token,
+          width: 252,
+          height: 252,
+          colorDark: '#111111',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (error) {
+        console.error('QR code generation failed:', error);
+        qr.textContent = 'QR code could not be generated. Member code shown above.';
+      }
       pass.classList.remove('hidden');
       message.classList.add('hidden');
     }
 
     async function getCallbackSession() {
-  const url = new URL(window.location.href);
-  const code = url.searchParams.get('code');
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
 
-  if (code) {
-    showMessage('Signing you in…');
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) throw error;
-    clearCallbackFromUrl();
-    return data.session;
-  }
-
-  showMessage('Processing your secure sign-in…');
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let timer = null;
-    let interval = null;
-    let subscription = null;
-
-    const finish = (error, session) => {
-      if (settled) return;
-      settled = true;
-
-      if (timer) window.clearTimeout(timer);
-      if (interval) window.clearInterval(interval);
-      if (subscription) subscription.unsubscribe();
-
-      if (error) {
-        reject(error);
-        return;
+      if (code) {
+        showMessage('Signing you in…');
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        clearCallbackFromUrl();
+        return data.session;
       }
 
-      clearCallbackFromUrl();
-      resolve(session);
-    };
+      showMessage('Processing your secure sign-in…');
 
-    const checkSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) return finish(error);
-        if (data.session) return finish(null, data.session);
-      } catch (error) {
-        finish(error);
-      }
-    };
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        let timer = null;
+        let interval = null;
+        let subscription = null;
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        finish(null, session);
-      }
-    });
+        const finish = (error, session) => {
+          if (settled) return;
+          settled = true;
 
-    subscription = data.subscription;
-    checkSession();
-    interval = window.setInterval(checkSession, 250);
+          if (timer) window.clearTimeout(timer);
+          if (interval) window.clearInterval(interval);
+          if (subscription) subscription.unsubscribe();
 
-    timer = window.setTimeout(() => {
-      finish(
-        new Error(
-          'Secure sign-in was not completed. Please request a new sign-in link and open it in the same browser.'
-        )
-      );
-    }, 10000);
-  });
-}
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          clearCallbackFromUrl();
+          resolve(session);
+        };
+
+        const checkSession = async () => {
+          try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error) return finish(error);
+            if (data.session) return finish(null, data.session);
+          } catch (error) {
+            finish(error);
+          }
+        };
+
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            finish(null, session);
+          }
+        });
+
+        subscription = data.subscription;
+        checkSession();
+        interval = window.setInterval(checkSession, 250);
+
+        // Increased timeout from 10s to 30s to allow for database queries
+        timer = window.setTimeout(() => {
+          finish(
+            new Error(
+              'Secure sign-in was not completed. Please request a new sign-in link and open it in the same browser.'
+            )
+          );
+        }, 30000);
+      });
+    }
 
     async function loadPass() {
       try {
@@ -177,9 +183,16 @@
           supabase.from('member_passes').select('pass_token, status').eq('profile_id', session.user.id).eq('status', 'active').single()
         ]);
 
-        if (profileResult.error || passResult.error) {
-          const detail = profileResult.error?.message || passResult.error?.message || 'The pass record was not found.';
-          throw new Error(`Your active pass could not be loaded: ${detail}`);
+        if (profileResult.error) {
+          throw new Error(`Profile not found: ${profileResult.error.message}`);
+        }
+
+        if (passResult.error) {
+          throw new Error(`Active pass not found: ${passResult.error.message}`);
+        }
+
+        if (!profileResult.data || !passResult.data) {
+          throw new Error('Your profile or member pass data is incomplete.');
         }
 
         renderPass(profileResult.data, passResult.data);
