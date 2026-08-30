@@ -34,9 +34,9 @@
 <body>
   <main>
     <section class="card" aria-labelledby="join-title">
-      <p class="eyebrow">Resonance</p>
-      <h1 id="join-title">Join Pulse Rewards</h1>
-      <p class="lede">Create your member account to receive your digital pass and earn rewards at Resonance events.</p>
+      <p class="eyebrow">Pulse Rewards</p>
+      <h1 id="join-title">Join Resonance</h1>
+      <p class="lede">Sign up for Pulse Rewards and receive a secure sign-in link by email—no password required.</p>
 
       <form id="join-form" novalidate>
         <label for="first-name">First name
@@ -47,12 +47,8 @@
           <input id="email" name="email" type="email" autocomplete="email" maxlength="320" required>
         </label>
 
-        <label for="password">Create a password
-          <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
-        </label>
-
-        <label for="password-confirmation">Confirm password
-          <input id="password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="instagram">Instagram handle <span aria-hidden="true">(optional)</span>
+          <input id="instagram" name="instagram" type="text" autocomplete="off" maxlength="30" placeholder="@yourhandle">
         </label>
 
         <label class="checkbox" for="marketing">
@@ -60,11 +56,11 @@
           <span>Send me Resonance news, event updates, and rewards offers.</span>
         </label>
 
-        <button id="submit-button" type="submit">Create my account</button>
+        <button id="submit-button" type="submit">Email me a secure sign-in link</button>
       </form>
 
       <div id="status" class="status" role="status" aria-live="polite"></div>
-      <p class="fine-print">After signing up, check your inbox for an email confirmation. You must confirm your email before your member pass is activated.</p>
+      <p class="fine-print">We will email a secure sign-in link. After you use it, your member pass will open automatically.</p>
       <a class="home" href="index.html">Return to Resonance</a>
     </section>
   </main>
@@ -98,9 +94,7 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
     function friendlyError(error) {
-      const message = error && error.message ? error.message : 'Something went wrong while creating your account.';
-      if (/already registered|already exists/i.test(message)) return 'An account may already exist for that email. Try signing in or use a different email address.';
-      if (/password/i.test(message)) return 'Choose a password with at least 8 characters.';
+      const message = error && error.message ? error.message : 'Something went wrong while sending your sign-in link.';
       if (/rate limit/i.test(message)) return 'Too many attempts were made. Please wait a few minutes and try again.';
       return message;
     }
@@ -113,33 +107,27 @@
 
       const firstName = document.getElementById('first-name').value.trim();
       const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const passwordConfirmation = document.getElementById('password-confirmation').value;
+      const instagram = document.getElementById('instagram').value.trim().replace(/^@+/, '');
       const marketing = document.getElementById('marketing').checked;
 
       if (!firstName) {
         showStatus('Please enter your first name.', 'error');
         return;
       }
-      if (password !== passwordConfirmation) {
-        showStatus('Your passwords do not match. Please try again.', 'error');
-        document.getElementById('password-confirmation').focus();
-        return;
-      }
 
       submitButton.disabled = true;
-      submitButton.textContent = 'Creating your account…';
+      submitButton.textContent = 'Sending your sign-in link…';
 
       try {
         const redirectTo = new URL('pass.html', window.location.href).href;
-        const { data, error } = await supabaseClient.auth.signUp({
+        const { error } = await supabaseClient.auth.signInWithOtp({
           email,
-          password,
           options: {
             emailRedirectTo: redirectTo,
             data: {
               first_name: firstName,
               display_name: firstName,
+              instagram_handle: instagram || null,
               email_marketing_opt_in: marketing
             }
           }
@@ -148,15 +136,11 @@
         if (error) throw error;
 
         form.hidden = true;
-        if (data.user && data.user.identities && data.user.identities.length === 0) {
-          showStatus('If this email is eligible, you will receive next steps shortly. Please check your inbox.', 'success');
-        } else {
-          showStatus('Account created. Check your email and click the confirmation link to activate your member pass.', 'success');
-        }
+        showStatus('Check your email for your secure sign-in link.', 'success');
       } catch (error) {
         showStatus(friendlyError(error), 'error');
         submitButton.disabled = false;
-        submitButton.textContent = 'Create my account';
+        submitButton.textContent = 'Email me a secure sign-in link';
       }
     });
   </script>
