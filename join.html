@@ -73,16 +73,29 @@
   <script>
     const SUPABASE_URL = 'https://bawttitvhoiwsjjxjmae.supabase.co';
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_iygmt6kTFDohEVviH5QcbA_hxrLRDXR';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
     const form = document.getElementById('join-form');
     const submitButton = document.getElementById('submit-button');
     const status = document.getElementById('status');
+    const savedEmail = window.sessionStorage.getItem('resonance.join.email');
+
+    if (savedEmail) {
+      document.getElementById('email').value = savedEmail;
+      window.sessionStorage.removeItem('resonance.join.email');
+    }
 
     function showStatus(message, type) {
       status.textContent = message;
       status.className = `status show ${type}`;
     }
+
+    if (!window.supabase || !window.supabase.createClient) {
+      showStatus('Signup service could not load. Please refresh and try again.', 'error');
+      submitButton.disabled = true;
+      throw new Error('Supabase client failed to load.');
+    }
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
     function friendlyError(error) {
       const message = error && error.message ? error.message : 'Something went wrong while creating your account.';
@@ -119,7 +132,7 @@
 
       try {
         const redirectTo = new URL('pass.html', window.location.href).href;
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await supabaseClient.auth.signUp({
           email,
           password,
           options: {
