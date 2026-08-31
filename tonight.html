@@ -56,13 +56,39 @@
   </main>
 
   <script>
+    const SUPABASE_URL = 'https://bawttitvhoiwsjjxjmae.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_iygmt6kTFDohEVviH5QcbA_hxrLRDXR';
     const source = new URLSearchParams(window.location.search).get('src') || 'direct';
     const eventName = 'resonance-monthly';
     const page = 'tonight.html';
 
-    function track(action) {
-      console.info('Resonance action:', { eventName, action, source, page });
-      // Add your Supabase tracking call here later. Do not put private keys in this public file.
+    let sessionId = localStorage.getItem('resonance_session_id');
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      localStorage.setItem('resonance_session_id', sessionId);
+    }
+
+    async function track(action) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/event_actions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            event_slug: eventName,
+            action,
+            source,
+            page,
+            session_id: sessionId
+          })
+        });
+      } catch (error) {
+        console.warn('Resonance analytics not recorded:', error);
+      }
     }
 
     track('page_view');
